@@ -1,0 +1,13 @@
+name = "FlyThroughPaths"
+uuid = "c11bb9a7-2755-425a-88f3-ebe93bbdb91f"
+authors = ["Tim Holy <tim.holy@gmail.com> and contributors"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.6.7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
