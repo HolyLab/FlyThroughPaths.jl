@@ -6,7 +6,14 @@ version = "1.0.0-DEV"
 [deps]
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
+[weakdeps]
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+
+[extensions]
+FlyThroughPathsMakieExt = "Makie"
+
 [compat]
+Makie = "0.21"
 StaticArrays = "1"
 julia = "1.10"
 
