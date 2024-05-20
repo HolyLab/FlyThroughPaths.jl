@@ -139,7 +139,7 @@ You need to load the visualization package, e.g., `using GLMakie`, in your sessi
 
 This can be handy for constructing a path, for example you can interactively set the approximate position and view parameters and then query them for use by the tools above.
 
-```
+```julia
 state = capture_view(scene)
 ```
 
@@ -147,7 +147,7 @@ state = capture_view(scene)
 
 ### Setting the current view state
 
-```
+```julia
 oldstate = set_view!(camera, path, t)
 ```
 
@@ -155,6 +155,6 @@ This updates the current `camera` settings from `path` at time `t`.
 
 ### Displaying the path
 
-```
+```julia
 plot(path)
 ```
