@@ -77,5 +77,14 @@ end
 ```
 ![A zooming view of a surface](path_zoom.mp4)
 
+## Visualizing the camera's path
+
+```@example simple
+f2, a2, p2 =  surface(-8..8, -8..8, Makie.peaks())
+FlyThroughPaths.plotcamerapath!(a2, path, 7)
+Makie.rotate_cam!(a2.scene, 0, pi/4, 0)
+f2
+```
+
 ## Bézier paths
 
