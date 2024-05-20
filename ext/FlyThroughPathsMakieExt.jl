@@ -32,6 +32,7 @@ end
 import FlyThroughPaths: plotcamerapath, plotcamerapath!
 @recipe(PlotCameraPath, path, time) do scene
     Attributes(
+        colormap = Makie.inherit(scene, :colormap, :plasma),
         color = Makie.inherit(scene, :color, :black),
         linewidth = Makie.inherit(scene, :linewidth, 1.0),
         linestyle = Makie.inherit(scene, :linestyle, :solid),
@@ -47,10 +48,14 @@ using Makie: Point3d
 function Makie.plot!(plot::PlotCameraPath)
     # Main.@infiltrate
 
-    eyepositions_obs = lift(plot, plot.path, plot.density) do path, density
+    eyepositions_obs = Observable{Vector{Point3d}}()
+    trange_obs = Observable{LinRange{Float64}}()
+    onany(plot, plot.path, plot.density; update = true) do path, density
         tend = FlyThroughPaths.duration(path)
-        trange = LinRange(0, tend, round(Int, tend*density))
-        Makie.Point3d.(getproperty.(path.(trange), :eyeposition))
+        trange_obs.val = LinRange(0.0, Float64(tend), round(Int, tend*density))
+        eyepositions_obs.val = Makie.Point3d.(getproperty.(path.(trange_obs.val), :eyeposition))
+        notify(eyepositions_obs)
+        notify(trange_obs)
     end
     notify(plot.density) # run the `onany` once
 
@@ -75,9 +80,11 @@ function Makie.plot!(plot::PlotCameraPath)
     lines!(
         plot, 
         eyepositions_obs;
-        color = plot.color, 
+        color = trange_obs,
+        colormap = plot.colormap, 
         linewidth = plot.linewidth, 
-        linestyle = plot.linestyle
+        linestyle = plot.linestyle,
+
     )
     arrows!(
         plot, 
