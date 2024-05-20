@@ -80,7 +80,7 @@ end
 ## Visualizing the camera's path
 
 ```@example simple
-f2, a2, p2 =  surface(-8..8, -8..8, Makie.peaks())
+f2, a2, p2 = surface(-8..8, -8..8, Makie.peaks())
 pathplot = FlyThroughPaths.plotcamerapath!(a2, path, 7)
 Makie.rotate_cam!(a2.scene, 0, pi/4, 0)
 f2
@@ -88,10 +88,39 @@ f2
 
 We can also animate the path to understand it more:
 ```@example simple
-record(f2, "camera_path.mp4", LinRange(0, 5, 150); framerate = 30) do t
+record(f2, "camera_path.mp4", LinRange(0, 5, 150); framerate = 30, update = false) do t
     pathplot.time[] = t
 end
 ```
+
+## Visualizing the viewing frustum
+```@example simple
+using Makie.GeometryBasics
+# Initialize a rectangle that covers all of clip space in the initial Scene
+frustum_clip_rect = Rect3d(Point3d(-1), Point3d(2))
+# Convert that rectangle to a mesh
+frustum_clip_mesh = lift(ax.scene.camera.projectionview) do _
+    fcm = normal_mesh(frustum_clip_rect)
+    # Project the mesh to `ax.scene`'s data space (which is shared with `a2.scene)
+    frustum_world_points = Makie.project.(ax.scene, :clip, :data, fcm.position)
+    # Reassign the projected points to the mesh positions
+    fcm.position .= frustum_world_points
+    return fcm
+end
+
+mesh!(a2.scene, frustum_clip_mesh; color = (:blue, 0.3), shading = Makie.MultiLightShading, xautolimits = false, yautolimits = false, zautolimits = false, transparency = false,)
+
+wireframe!(a2.scene, frustum_clip_mesh; color = (:blue, 0.3), linewidth = 1, xautolimits = false)
+f2
+```
+Since the frustum mesh is an Observable linked to the first Scene's camera, we can animate it at no extra cost!
+```@example simple
+record(f2, "camera_path_frustum.mp4", LinRange(0, 10, 300); framerate = 30, update = false) do t
+    set_view!(ax, path(t))
+    pathplot.time[] = t
+end
+```
+![A constant view of the previous surface and camera system](camera_path_frustum.mp4)
 
 ## Bézier paths
 
