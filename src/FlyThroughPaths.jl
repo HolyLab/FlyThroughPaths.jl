@@ -12,6 +12,7 @@ function set_view! end
 include("viewstate.jl")
 include("pathchange.jl")
 include("path.jl")
+include("recipe.jl")
 
 function __init__()
     if isdefined(Base.Experimental, :register_error_hint)
