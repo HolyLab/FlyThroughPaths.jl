@@ -10,6 +10,8 @@ function Base.:*(path::Path{R}, change::PathChange{S}) where {R,S}
     Path{T}(path.initialview, PathChange{T}[path.changes..., change])
 end
 
+duration(path::Path{T}) where T = sum(duration, path.changes; init = zero(T))
+
 function (path::Path{T})(t) where T
     view = path.initialview
     tend = zero(T)
