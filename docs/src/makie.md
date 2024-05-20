@@ -81,9 +81,16 @@ end
 
 ```@example simple
 f2, a2, p2 =  surface(-8..8, -8..8, Makie.peaks())
-FlyThroughPaths.plotcamerapath!(a2, path, 7)
+pathplot = FlyThroughPaths.plotcamerapath!(a2, path, 7)
 Makie.rotate_cam!(a2.scene, 0, pi/4, 0)
 f2
+```
+
+We can also animate the path to understand it more:
+```@example simple
+record(f2, "camera_path.mp4", LinRange(0, 5, 150); framerate = 30) do t
+    pathplot.time[] = t
+end
 ```
 
 ## Bézier paths
