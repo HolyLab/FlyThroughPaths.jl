@@ -25,8 +25,12 @@ function FlyThroughPaths.set_view!(scene::Scene, view::ViewState)
 end
 FlyThroughPaths.set_view!(axis::Makie.AbstractAxis, view::ViewState) = set_view!(axis.scene, view)
 
+function Makie.record(fig::Makie.FigureLike, file::String, path::Path; framerate = 24, kwargs...)
+    tend = FlyThroughPaths.duration(path)
+    trange = LinRange(0, tend, round(Int, tend / framerate))
+    iterator = path.(trange)
+    return Makie.record(fig, file, iterator; framerate, kwargs...)
 end
-
 
 # Define the recipe
 import FlyThroughPaths: plotcamerapath, plotcamerapath!
@@ -44,10 +48,11 @@ import FlyThroughPaths: plotcamerapath, plotcamerapath!
     )
 end
 
+Makie.convert_arguments(::Type{<: PlotCameraPath}, path::Path, time::Number) = (path, Float64(time))
+Makie.convert_arguments(::Type{<: PlotCameraPath}, path::Path) = (path, 0.0)
+
 using Makie: Point3d
 function Makie.plot!(plot::PlotCameraPath)
-    # Main.@infiltrate
-
     eyepositions_obs = Observable{Vector{Point3d}}()
     trange_obs = Observable{LinRange{Float64}}()
     onany(plot, plot.path, plot.density; update = true) do path, density
