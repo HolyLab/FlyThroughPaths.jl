@@ -70,9 +70,9 @@ function Makie.plot!(plot::PlotCameraPath)
 
     current_viewstate_obs = lift(plot, plot.path, plot.time) do path, time
         current_viewstate = path(time)
-        eyeposition_obs.val = current_viewstate.eyeposition |> Point3d
-        lookat_obs.val = current_viewstate.lookat |> Point3d
-        viewdir = (current_viewstate.lookat - current_viewstate.eyeposition)
+        eyeposition_obs.val = Point3d(current_viewstate.eyeposition)
+        lookat_obs.val = Point3d(current_viewstate.lookat)
+        viewdir = current_viewstate.lookat - current_viewstate.eyeposition
         viewdir_obs.val = Point3d(viewdir)
         notify(eyeposition_obs)
         notify(lookat_obs)
