@@ -5,7 +5,7 @@
 [![Build Status](https://github.com/HolyLab/FlyThroughPaths.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/HolyLab/FlyThroughPaths.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/HolyLab/FlyThroughPaths.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/HolyLab/FlyThroughPaths.jl)
 
-
+This package makes it easier to create "fly-through" animations of 3d visualizations.
 All of the examples below assume you've loaded the package with `using FlyThroughPaths`.
 
 ## Generic tools
