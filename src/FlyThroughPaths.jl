@@ -6,13 +6,10 @@ export ViewState, Path, Pause, ConstrainedMove, BezierMove
 # exports for the extensions
 export capture_view, set_view!
 
-function capture_view end
-function set_view! end
-
+include("interfaces.jl")
 include("viewstate.jl")
 include("pathchange.jl")
 include("path.jl")
-include("recipe.jl")
 
 function __init__()
     if isdefined(Base.Experimental, :register_error_hint)
