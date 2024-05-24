@@ -14,7 +14,8 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Makie integration" => "makie.md"
+        "Makie integration" => "makie.md",
+        "Developer documentation" => "devdocs.md"
     ],
 )
 
