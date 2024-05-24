@@ -7,3 +7,10 @@ FlyThroughPaths operates on the [`ViewState`](@ref) model.  In order to implemen
 - `set_view!(obj, viewstate::ViewState)`: set the camera to the given `ViewState`.
 
 Integration is already implemented for Makie; you can see that in `ext/FlyThroughPathsMakieExt.jl`.  The first ~20 lines are the most instructive, beyond which lie utility functions and visualization specializations.
+
+## The `PathChange` interface
+
+```@docs
+PathChange
+duration
+```

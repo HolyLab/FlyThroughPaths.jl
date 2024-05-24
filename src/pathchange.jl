@@ -1,3 +1,17 @@
+"""
+    abstract type PathChange{T <: Real} 
+
+The supertype for all path changes.
+
+## Interface
+
+All subtypes of `PathChange` must be callable with the signature
+`(::PathChange)(t::Real)::ViewState`.
+
+Additionally, they must implement the following functions:
+- `duration(::PathChange{T})::T`
+- `target(oldviewstate::ViewState, c::PathChange)::ViewState`, if applicable.
+"""
 abstract type PathChange{T<:Real} end
 
 struct Pause{T} <: PathChange{T}
