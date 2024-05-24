@@ -80,8 +80,8 @@ function Makie.plot!(plot::PlotCameraPath)
         current_viewstate
     end
 
-
-
+    # Now that we have the Observables defined, 
+    # we can create the plots!
     lines!(
         plot, 
         eyepositions_obs;
@@ -89,7 +89,6 @@ function Makie.plot!(plot::PlotCameraPath)
         colormap = plot.colormap, 
         linewidth = plot.linewidth, 
         linestyle = plot.linestyle,
-
     )
     arrows!(
         plot, 
