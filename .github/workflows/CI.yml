@@ -74,7 +74,7 @@ jobs:
         run: xvfb-run -s '-screen 0 1024x768x24' julia --project=docs/ docs/make.jl deploy
       - name: Run doctests  
         run: julia --project=docs -e '
-          using Documenter: DocMeta, doctest
-          using FlyThroughPaths
-          DocMeta.setdocmeta!(FlyThroughPaths, :DocTestSetup, :(using FlyThroughPaths); recursive=true)
-          doctest(FlyThroughPaths)'
+              using Documenter
+              using FlyThroughPaths
+              Documenter.DocMeta.setdocmeta!(FlyThroughPaths, :DocTestSetup, :(using FlyThroughPaths); recursive=true)
+              Documenter.doctest(FlyThroughPaths)'
