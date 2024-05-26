@@ -22,4 +22,5 @@ makedocs(;
 deploydocs(;
     repo="github.com/HolyLab/FlyThroughPaths.jl",
     devbranch="main",
+    push_preview=true,
 )
