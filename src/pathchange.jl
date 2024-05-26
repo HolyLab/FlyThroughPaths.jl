@@ -6,14 +6,28 @@ The supertype for all path changes.
 ## Interface
 
 All subtypes of `PathChange` must be callable with the signature
-`(::PathChange)(t::Real)::ViewState`.
+`(::PathChange)(t::Real)::ViewState`.  Here `t` is the _relative_
+time, that is, `t=0` corresponds to the absolute time point where
+the particular `PathChange` that is being called begins.
 
-Additionally, they must implement the following functions:
+All `PathChange` subtypes must implement the following functions:
 - `duration(::PathChange{T})::T`
 - `target(oldviewstate::ViewState, c::PathChange)::ViewState`, if applicable.
+
+By convention, each `PathChange` subtype includes an `action` field.
+This is a callback callable that takes a single argument `t`, which is 
+the relative time within the `PathChange`, and performs some action, 
+such as updating some state variable.  If absolute time is desired,
+it's best to implment that in the outer animation loop, and not as 
+an `action` callback.
 """
 abstract type PathChange{T<:Real} end
 
+"""
+    Pause(duration, [action])
+
+Pause at the current position for `duration`.
+"""
 struct Pause{T} <: PathChange{T}
     duration::T
     action
