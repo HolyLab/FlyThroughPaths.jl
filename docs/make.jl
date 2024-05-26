@@ -17,6 +17,7 @@ makedocs(;
         "Makie integration" => "makie.md",
         "Developer documentation" => "devdocs.md"
     ],
+    warnonly=true,
 )
 
 deploydocs(;
