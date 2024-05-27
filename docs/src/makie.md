@@ -92,6 +92,7 @@ record(f2, "camera_path.mp4", LinRange(0, 5, 150); framerate = 30, update = fals
     pathplot.time[] = t
 end
 ```
+![](camera_path.mp4)
 
 ## Visualizing the viewing frustum
 ```@example simple
