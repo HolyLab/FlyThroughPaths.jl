@@ -14,10 +14,14 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Makie integration" => "makie.md",
+        "Developer documentation" => "devdocs.md"
     ],
+    warnonly=true,
 )
 
 deploydocs(;
     repo="github.com/HolyLab/FlyThroughPaths.jl",
     devbranch="main",
+    push_preview=true,
 )
