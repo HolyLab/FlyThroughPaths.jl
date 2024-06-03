@@ -1,7 +1,7 @@
 name = "FlyThroughPaths"
 uuid = "c11bb9a7-2755-425a-88f3-ebe93bbdb91f"
 authors = ["Tim Holy <tim.holy@gmail.com> and contributors"]
-version = "1.0.0-DEV"
+version = "0.1.0"
 
 [deps]
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
