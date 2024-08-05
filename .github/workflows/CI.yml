@@ -62,7 +62,10 @@ jobs:
           xvfb-run -s '-screen 0 1024x768x24' julia --project=docs -e '
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.add(name = "DocumenterVitepress", rev = "master")
+            Pkg.add([
+              PackageSpec(name = "DocumenterVitepress", rev = "master"), 
+              PackageSpec(url = "https://github.com/asinghvi17/Documenter.jl", rev = "patch-4"),
+            ])
             Pkg.instantiate()'
         env:
           DISPLAY: ':0'
