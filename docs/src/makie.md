@@ -57,9 +57,11 @@ rotation looks as elliptical as it can.
 Now, we can use Makie's `record` function to record an animation with 
 this:
 ```@example simple
-record(fig, "path.mp4", LinRange(0, 5, 150); framerate = 30) do t
+io = Record(fig, LinRange(0, 5, 150); framerate = 30) do t
     set_view!(ax, path(t))
 end
+# save("video.mp4", io)
+io # hide
 ```
 ![A rotating view of a surface](path.mp4)
 
