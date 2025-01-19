@@ -14,7 +14,7 @@ FlyThroughPathsMakieExt = "Makie"
 
 [compat]
 LinearAlgebra = "1"
-Makie = "0.21"
+Makie = "0.21, 0.22"
 StaticArrays = "1"
 Test = "1"
 julia = "1.10"
