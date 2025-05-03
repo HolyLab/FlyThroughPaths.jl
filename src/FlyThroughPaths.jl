@@ -1,7 +1,8 @@
 module FlyThroughPaths
 
 using StaticArrays
-using Rotations 
+using Rotations
+using LinearAlgebra
 
 export ViewState, Path
 # exports for the extensions
@@ -16,8 +17,9 @@ include("path.jl")
 include("pathchanges/beziermove.jl")
 include("pathchanges/constrainedmove.jl")
 include("pathchanges/pause.jl")
+include("pathchanges/slerpmove.jl")
 
-export BezierMove, ConstrainedMove, Pause
+export BezierMove, ConstrainedMove, Pause, SlerpMove
 
 function __init__()
     if isdefined(Base.Experimental, :register_error_hint)
