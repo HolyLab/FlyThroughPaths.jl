@@ -6,7 +6,6 @@ Spherical linear interpolation between two n-vectors.
 t01 must be between 0 and 1 - 0 means the result equals p1, 1 means the result equals p2.
 """
 function slerp(p1::AbstractVector, p2::AbstractVector, t01)
-    # @show p1 p2
     np1, np2 = normalize(p1), normalize(p2)
     if _disqualified_for_slerp(np1, np2)
         return p1
