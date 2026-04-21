@@ -46,7 +46,7 @@ jobs:
               Documenter.DocMeta.setdocmeta!(FlyThroughPaths, :DocTestSetup, :(using FlyThroughPaths); recursive=true);
               Documenter.doctest(FlyThroughPaths);'
       - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v6
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
