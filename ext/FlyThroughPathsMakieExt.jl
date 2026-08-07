@@ -24,12 +24,25 @@ function FlyThroughPaths.set_view!(scene::Scene, view::ViewState)
     return scene
 end
 FlyThroughPaths.set_view!(axis::Makie.AbstractAxis, view::ViewState) = set_view!(axis.scene, view)
+FlyThroughPaths.set_view!(figaxplot::Makie.FigureAxisPlot, view::ViewState) = set_view!(figaxplot.axis, view)
+function FlyThroughPaths.set_view!(fig::Makie.Figure, view::ViewState)
+    axis = Makie.current_axis(fig)
+    axis === nothing && throw(ArgumentError("`fig` has no current axis whose view could be set; pass the axis or scene instead."))
+    return set_view!(axis, view)
+end
 
+"""
+    record(figlike, file, path::Path; framerate = 24, kwargs...)
+
+Record a video of `figlike` flying along `path`, sampling the path `framerate` times per
+second of path time.  For a `Figure`, the view is set on its current axis.
+"""
 function Makie.record(fig::Makie.FigureLike, file::String, path::Path; framerate = 24, kwargs...)
     tend = FlyThroughPaths.duration(path)
     trange = LinRange(0, tend, FlyThroughPaths.nframes(path, framerate))
-    iterator = path.(trange)
-    return Makie.record(fig, file, iterator; framerate, kwargs...)
+    return Makie.record(fig, file, trange; framerate, kwargs...) do t
+        set_view!(fig, path(t))
+    end
 end
 
 # Define the recipe
