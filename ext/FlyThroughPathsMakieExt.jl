@@ -27,7 +27,7 @@ FlyThroughPaths.set_view!(axis::Makie.AbstractAxis, view::ViewState) = set_view!
 
 function Makie.record(fig::Makie.FigureLike, file::String, path::Path; framerate = 24, kwargs...)
     tend = FlyThroughPaths.duration(path)
-    trange = LinRange(0, tend, round(Int, tend / framerate))
+    trange = LinRange(0, tend, FlyThroughPaths.nframes(path, framerate))
     iterator = path.(trange)
     return Makie.record(fig, file, iterator; framerate, kwargs...)
 end
@@ -57,7 +57,7 @@ function Makie.plot!(plot::PlotCameraPath)
     trange_obs = Observable{LinRange{Float64}}()
     onany(plot, plot.path, plot.density; update = true) do path, density
         tend = FlyThroughPaths.duration(path)
-        trange_obs.val = LinRange(0.0, Float64(tend), round(Int, tend*density))
+        trange_obs.val = LinRange(0.0, Float64(tend), FlyThroughPaths.nframes(path, density))
         eyepositions_obs.val = Makie.Point3d.(getproperty.(path.(trange_obs.val), :eyeposition))
         notify(eyepositions_obs)
         notify(trange_obs)

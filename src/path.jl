@@ -27,6 +27,17 @@ end
 
 duration(path::Path{T}) where T = sum(duration, path.changes; init = zero(T))
 
+"""
+    nframes(path, rate)
+
+Return the number of samples needed to traverse `path` at `rate` samples per second,
+e.g. the number of frames to render at a given framerate.
+
+At least two samples are returned, so that a path shorter than one sampling interval
+still yields a non-degenerate range.
+"""
+nframes(path::Path, rate) = max(2, round(Int, duration(path) * rate))
+
 function (path::Path{T})(t) where T
     view = path.initialview
     tend = zero(T)

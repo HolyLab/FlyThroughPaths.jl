@@ -150,6 +150,19 @@ using Test
             @test_throws ArgumentError move(view0, 1.5)
             @test_throws ArgumentError move(view0, -0.5)
         end
+        @testset "nframes" begin
+            # Used by the Makie extension to sample a path for `record`
+            view0 = ViewState(eyeposition = SVector(10.0, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
+                              upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
+            tenseconds = Path(view0) * Pause(10.0)
+            @test FlyThroughPaths.nframes(tenseconds, 24) == 240
+            @test FlyThroughPaths.nframes(tenseconds, 30) == 300
+            @test FlyThroughPaths.nframes(Path(view0) * Pause(122.0), 30) == 3660
+            @test FlyThroughPaths.nframes(Path(view0) * Pause(0.5), 24) == 12
+            # A path shorter than a frame interval still needs a non-degenerate range
+            @test FlyThroughPaths.nframes(Path(view0) * Pause(0.01), 24) == 2
+            @test FlyThroughPaths.nframes(Path(view0), 24) == 2
+        end
         @testset "long path" begin
             # A 122 s flight assembled from 750 short moves: in Float32 the segment start
             # times accumulated by `path(t)` drift away from the sampled frame times.
