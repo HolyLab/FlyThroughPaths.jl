@@ -23,9 +23,10 @@ First, we extract the initial view state from the axis `ax`.
 ```@example simple
 view0 = capture_view(ax)
 ```
-Note that this `ViewState` is a Float32 object, since that's the space
-Makie cameras work in.  If you want this to be Float64, you can 
-simply `convert(ViewState{Float64}, view0)`.
+Note that the element type of this `ViewState` follows the space the Makie
+camera works in, which is Float32 for older versions of Makie and Float64
+for newer ones.  If you want a different element type, you can simply
+`convert(ViewState{Float64}, view0)`.
 
 ### Creating a path
 
