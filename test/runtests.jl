@@ -1,5 +1,6 @@
 using FlyThroughPaths
 using LinearAlgebra
+using StaticArrays
 using Test
 
 @testset "FlyThroughPaths.jl" begin
@@ -18,6 +19,23 @@ using Test
             @test str == "ViewState{Float32}(eyeposition=[-10.0, 0.0, 0.0], lookat=[0.0, 0.0, 0.0], upvector=[0.0, 0.0, 1.0], fov=45.0)"
             # Round-trippability with display
             @test eval(Meta.parse(str)) == view
+        end
+        @testset "element type" begin
+            # The element type is promoted from the supplied values
+            view64 = ViewState(eyeposition = SVector(1.0, 2.0, 3.0), lookat = SVector(0.0, 0.0, 0.0),
+                               upvector = SVector(0.0, 0.0, 1.0), fov = 40.0)
+            @test view64 isa ViewState{Float64}
+            @test view64.eyeposition == [1, 2, 3]
+            # Float32 input still yields a Float32 ViewState
+            @test ViewState(eyeposition = SVector{3,Float32}(1, 2, 3), fov = 40f0) isa ViewState{Float32}
+            @test ViewState(eyeposition = SVector{3,Float16}(1, 2, 3)) isa ViewState{Float16}
+            # A single Float64 field is enough to promote the whole state
+            @test ViewState(eyeposition = SVector{3,Float32}(1, 2, 3), fov = 40.0) isa ViewState{Float64}
+            # Integers carry no precision preference, so they keep the Float32 default
+            @test ViewState(eyeposition = [-10, 0, 0], fov = 45) isa ViewState{Float32}
+            @test ViewState() isa ViewState{Float32}
+            # Explicitly-typed construction is unaffected
+            @test ViewState{Float32}(eyeposition = SVector(1.0, 2.0, 3.0), fov = 40.0) isa ViewState{Float32}
         end
     end
     @testset "Path" begin
@@ -102,6 +120,22 @@ using Test
             move = ConstrainedMove(1.0, ViewState{Float64}(eyeposition=[0, 10, 0]), :none, :constant)
             @test_throws ArgumentError move(view0, 1.5)
             @test_throws ArgumentError move(view0, -0.5)
+        end
+        @testset "long path" begin
+            # A 122 s flight assembled from 750 short moves: in Float32 the segment start
+            # times accumulated by `path(t)` drift away from the sampled frame times.
+            view0 = ViewState(eyeposition = SVector(10.0, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
+                              upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
+            n, tend = 750, 122.0
+            longpath = Path(view0)
+            for i in 1:n
+                θ = 2π * i / n
+                longpath = longpath * ConstrainedMove(tend/n, ViewState(eyeposition = SVector(10cos(θ), 10sin(θ), 0.0)), :none, :constant)
+            end
+            @test longpath isa Path{Float64}
+            @test FlyThroughPaths.duration(longpath) ≈ tend
+            @test all(t -> longpath(t) isa ViewState{Float64}, range(0, tend; length = 1001))
+            @test all(k -> longpath(k*(tend/n)) isa ViewState{Float64}, 0:n)
         end
     end
 end
