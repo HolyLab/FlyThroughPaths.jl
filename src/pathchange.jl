@@ -38,7 +38,7 @@ end
 
 Pause at the current position for `duration`.
 """
-Pause(duration::T) where T = Pause{T}(duration)
+Pause(duration::T, action=nothing) where T = Pause{T}(duration, action)
 
 Base.convert(::Type{Pause{T}}, p::Pause) where T = Pause{T}(p.duration, p.action)
 Base.convert(::Type{PathChange{T}}, p::Pause) where T = convert(Pause{T}, p)
@@ -151,7 +151,7 @@ function (pause::Pause{T})(view::ViewState{T}, t) where T
     checkt(t, pause)
     action = pause.action
     if action !== nothing
-        tf = t / duration(move)
+        tf = t / duration(pause)
         act(action, tf)
     end
     return view

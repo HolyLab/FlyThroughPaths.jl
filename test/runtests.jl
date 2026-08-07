@@ -32,6 +32,19 @@ using Test
             @test newpath(0.5).eyeposition == view.eyeposition
 
             @test path*Pause(1.0) isa Path{Float64}
+
+            @testset "action" begin
+                ts = Float64[]
+                pause = Pause(2.0, t -> push!(ts, t))
+                @test pause isa Pause{Float64}
+                newpath = path*pause
+                # The action fires with the fraction of the pause that has elapsed
+                @test newpath(1.0).eyeposition == view.eyeposition
+                @test ts == [0.5]
+                newpath(0.0)
+                newpath(2.0)
+                @test ts == [0.5, 0.0, 1.0]
+            end
         end
         @testset "ConstrainedMove" begin
             move = ConstrainedMove(5, ViewState(eyeposition=[0, 10, 0]), :none, :constant)
