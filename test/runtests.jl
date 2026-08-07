@@ -80,5 +80,28 @@ using Test
             @test mid.lookat == view.lookat
             @test mid.upvector == view.upvector
         end
+        @testset "segment boundaries" begin
+            # `path(t)` accumulates the segment start times, so the local time handed to a
+            # `PathChange` can exceed that change's duration by an ulp even though `t`
+            # itself selected the segment.
+            view0 = ViewState{Float64}(eyeposition=[10, 0, 0], lookat=[0, 0, 0], upvector=[0, 0, 1], fov=45)
+            bpath = Path(view0)
+            for i in 1:5
+                bpath = bpath * ConstrainedMove(0.2, ViewState{Float64}(eyeposition=[10, i, 0]), :none, :constant)
+            end
+            for k in 0:5
+                t = 0.2k
+                @test bpath(t) isa ViewState{Float64}
+                @test bpath(prevfloat(t)) isa ViewState{Float64}
+                @test bpath(nextfloat(t)) isa ViewState{Float64}
+            end
+            # ...and the view is continuous across a boundary
+            @test bpath(prevfloat(0.6)).eyeposition ≈ bpath(nextfloat(0.6)).eyeposition
+
+            # `checkt` should still reject times that are genuinely out of range
+            move = ConstrainedMove(1.0, ViewState{Float64}(eyeposition=[0, 10, 0]), :none, :constant)
+            @test_throws ArgumentError move(view0, 1.5)
+            @test_throws ArgumentError move(view0, -0.5)
+        end
     end
 end

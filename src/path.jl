@@ -34,7 +34,10 @@ function (path::Path{T})(t) where T
     for change in path.changes
         tnext = tend + duration(change)
         if t <= tnext
-            return change(view, t - tend)
+            # `tend` is accumulated separately from `t`, so `t - tend` can land a few ulps
+            # outside `[0, duration(change)]` even though `t` selected this change. Clamp
+            # rather than let `checkt` reject a time we just decided belongs here.
+            return change(view, clamp(t - tend, zero(T), duration(change)))
         end
         tend, view = tnext, filldefaults(target(view, change), view)
     end
