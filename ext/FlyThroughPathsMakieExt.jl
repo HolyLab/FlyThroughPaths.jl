@@ -24,24 +24,36 @@ function FlyThroughPaths.set_view!(scene::Scene, view::ViewState)
     return scene
 end
 FlyThroughPaths.set_view!(axis::Makie.AbstractAxis, view::ViewState) = set_view!(axis.scene, view)
+# A `FigureAxisPlot` names its axis, so there is nothing to guess here
 FlyThroughPaths.set_view!(figaxplot::Makie.FigureAxisPlot, view::ViewState) = set_view!(figaxplot.axis, view)
-function FlyThroughPaths.set_view!(fig::Makie.Figure, view::ViewState)
-    axis = Makie.current_axis(fig)
-    axis === nothing && throw(ArgumentError("`fig` has no current axis whose view could be set; pass the axis or scene instead."))
-    return set_view!(axis, view)
+
+"""
+    record(object, file, path::Path; framerate = 24, kwargs...)
+
+Record a video of the camera of `object` flying along `path`, sampling the path
+`framerate` times per second of path time.  Remaining keyword arguments are forwarded to
+`Makie.record`.
+
+`object` is whatever the path drives: a `Scene`, an axis, or a `FigureAxisPlot` (which
+names its axis).  Recording an axis records the whole figure it belongs to.  A bare
+`Figure` is not accepted, because it does not say which of its axes should be flown; use
+`record(fig, file, trange) do t; set_view!(ax, path(t)); end` when you need one.
+"""
+function Makie.record(scene::Scene, file::String, path::Path; kwargs...)
+    return _record_path(scene, scene, file, path; kwargs...)
+end
+function Makie.record(axis::Makie.AbstractAxis, file::String, path::Path; kwargs...)
+    return _record_path(Makie.root(axis.scene), axis, file, path; kwargs...)
+end
+function Makie.record(figaxplot::Makie.FigureAxisPlot, file::String, path::Path; kwargs...)
+    return Makie.record(figaxplot.axis, file, path; kwargs...)
 end
 
-"""
-    record(figlike, file, path::Path; framerate = 24, kwargs...)
-
-Record a video of `figlike` flying along `path`, sampling the path `framerate` times per
-second of path time.  For a `Figure`, the view is set on its current axis.
-"""
-function Makie.record(fig::Makie.FigureLike, file::String, path::Path; framerate = 24, kwargs...)
-    tend = FlyThroughPaths.duration(path)
-    trange = LinRange(0, tend, FlyThroughPaths.nframes(path, framerate))
-    return Makie.record(fig, file, trange; framerate, kwargs...) do t
-        set_view!(fig, path(t))
+function _record_path(figlike, viewtarget, file::String, path::Path; framerate = 24, kwargs...)
+    trange = LinRange(0, FlyThroughPaths.duration(path), FlyThroughPaths.nframes(path, framerate))
+    views = path(trange)  # one pass over the path, rather than a search per frame
+    return Makie.record(figlike, file, views; framerate, kwargs...) do viewstate
+        set_view!(viewtarget, viewstate)
     end
 end
 
@@ -71,7 +83,7 @@ function Makie.plot!(plot::PlotCameraPath)
     onany(plot, plot.path, plot.density; update = true) do path, density
         tend = FlyThroughPaths.duration(path)
         trange_obs.val = LinRange(0.0, Float64(tend), FlyThroughPaths.nframes(path, density))
-        eyepositions_obs.val = Makie.Point3d.(getproperty.(path.(trange_obs.val), :eyeposition))
+        eyepositions_obs.val = Makie.Point3d.(getproperty.(path(trange_obs.val), :eyeposition))
         notify(eyepositions_obs)
         notify(trange_obs)
     end

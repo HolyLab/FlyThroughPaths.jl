@@ -28,5 +28,6 @@ record(fig, "fly_animation.mp4", tlist; framerate=round(Int, length(tlist)/last(
 end
 
 # `record` also accepts a `Path` directly, sampling it at `framerate` frames per second
-# and setting the view on each frame (on the figure's current axis).
-record(fig, "fly_animation_path.mp4", path; framerate=24)
+# and setting the view of the object it is given on each frame.  That object is the axis
+# (or scene) being flown, not the figure, which would not say which axis to fly.
+record(ax, "fly_animation_path.mp4", path; framerate=24)
