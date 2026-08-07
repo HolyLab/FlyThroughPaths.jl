@@ -115,6 +115,23 @@ using Test
             # A move that only changes the distance still interpolates the distance smoothly
             rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = SVector(5.0, 0.0, 0.0)), :rotation, :constant)
             @test rpath(0.5).eyeposition ≈ [sqrt(50), 0, 0]   # geometric mean of 10 and 5
+
+            # A move that is nearly, but not exactly, a half turn still follows the great
+            # circle its endpoints determine. Here that circle runs through +y, and the
+            # cross product still fixes its plane to a relative accuracy of 1e-7 even
+            # though `dot(a, b)` has already rounded to exactly -1 in Float64.
+            eyenew = 10 .* normalize(SVector(-1.0, 1e-9, 0.0))
+            rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = eyenew), :rotation, :constant)
+            @test rpath(0.5).eyeposition ≈ [0, 10, 0] atol = 1e-6
+            @test rpath(0.25).eyeposition ≈ 10 .* [cosd(45), sind(45), 0] atol = 1e-6
+            # An exact half turn is ambiguous, so any great circle will do, but the radius
+            # must still be preserved and the move must stay perpendicular to its own axis
+            rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = SVector(-10.0, 0.0, 0.0)), :rotation, :constant)
+            @test norm(rpath(0.5).eyeposition) ≈ 10
+            @test dot(rpath(0.5).eyeposition, view0.eyeposition) ≈ 0 atol = 1e-12
+            # ...and the arc must be traced continuously, not jumped through
+            arc = [rpath(f).eyeposition for f in range(0, 1; length = 201)]
+            @test maximum(norm.(diff(arc))) < 0.2
         end
         @testset "BezierMove" begin
             move = BezierMove(5, ViewState(eyeposition=[0, 10, 0]), [ViewState(eyeposition=[-20, 20, 0])])
