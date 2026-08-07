@@ -87,6 +87,35 @@ using Test
             v = newpath(1.25)
             @test norm(v.eyeposition - view.eyeposition) < 0.9 * norm(v.eyeposition - [-5, 5, 0])
         end
+        @testset ":rotation constraint" begin
+            # A `cospi(f/2)*vold + sinpi(f/2)*vnew` blend has squared length
+            # d²(1 + sinpi(f)*cos(θ)), which is d² only for θ = 90°. The distance to the
+            # lookat point must instead stay between the two endpoint distances.
+            for θ in (0, 45, 90, 179, 180), (dold, dnew) in ((10.0, 10.0), (10.0, 4.0), (4.0, 10.0))
+                view0 = ViewState(eyeposition = SVector(dold, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
+                                  upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
+                eyenew = SVector(dnew*cosd(θ), dnew*sind(θ), 0.0)
+                rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = eyenew), :rotation, :constant)
+                # The endpoints are exact
+                @test rpath(0.0).eyeposition == view0.eyeposition
+                @test rpath(1.0).eyeposition == eyenew
+                radii = [norm(rpath(f).eyeposition - rpath(f).lookat) for f in range(0, 1; length = 101)]
+                @test !any(isnan, radii)
+                @test all(r -> min(dold, dnew) - 1e-8 <= r <= max(dold, dnew) + 1e-8, radii)
+                # ...and it varies monotonically, so equal endpoint radii stay constant
+                @test issorted(round.(radii; digits = 9); rev = dnew < dold)
+            end
+            # The interpolation is a rotation, not a chord: halfway through a 90° move at
+            # constant radius the camera sits at 45°.
+            view0 = ViewState(eyeposition = SVector(10.0, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
+                              upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
+            rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = SVector(0.0, 10.0, 0.0)), :rotation, :constant)
+            @test rpath(0.5).eyeposition ≈ [10/sqrt(2), 10/sqrt(2), 0]
+            @test rpath(0.25).eyeposition ≈ 10 .* [cosd(22.5), sind(22.5), 0]
+            # A move that only changes the distance still interpolates the distance smoothly
+            rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = SVector(5.0, 0.0, 0.0)), :rotation, :constant)
+            @test rpath(0.5).eyeposition ≈ [sqrt(50), 0, 0]   # geometric mean of 10 and 5
+        end
         @testset "BezierMove" begin
             move = BezierMove(5, ViewState(eyeposition=[0, 10, 0]), [ViewState(eyeposition=[-20, 20, 0])])
             newpath = path*move

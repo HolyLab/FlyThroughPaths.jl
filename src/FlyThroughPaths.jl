@@ -1,5 +1,6 @@
 module FlyThroughPaths
 
+using LinearAlgebra
 using StaticArrays
 
 export ViewState, Path, Pause, ConstrainedMove, BezierMove

@@ -145,6 +145,48 @@ Base.@nospecializeinfer function act(@nospecialize(action), t::Real)
     return nothing
 end
 
+"""
+    slerp(vold, vnew, f)
+
+Interpolate between the vectors `vold` and `vnew` at fraction `f`, rotating the direction
+along the great circle joining them while interpolating the length geometrically. The
+length therefore varies monotonically between `norm(vold)` and `norm(vnew)`, and is
+constant when those are equal.
+
+The naive blend `cospi(f/2) * vold + sinpi(f/2) * vnew` is not a rotation: writing
+`d = norm(vold) = norm(vnew)` and `θ` for the angle between the two vectors, its squared
+length is `d^2 * (1 + sinpi(f) * cos(θ))`, which is `d^2` only for `θ = 90°`. At `θ = 0` it
+swells to `d^2*2` halfway through, and at `θ = 180°` it passes through zero, i.e. through
+the point being looked at.
+"""
+function slerp(vold::SVector{3,T}, vnew::SVector{3,T}, f) where T
+    f <= 0 && return vold
+    f >= 1 && return vnew
+    dold, dnew = norm(vold), norm(vnew)
+    # A vector of zero length has no direction to rotate, so interpolate linearly instead
+    (iszero(dold) || iszero(dnew)) && return (1 - f) * vold + f * vnew
+    uold, unew = vold / dold, vnew / dnew
+    # Geometric interpolation of the length: a constant relative rate of approach reads
+    # more evenly than a linear one when the camera dollies in or out.
+    d = dold * (dnew / dold)^f
+    c = clamp(dot(uold, unew), -one(T), one(T))
+    s = sqrt(max(zero(T), 1 - c * c))     # sin(θ)
+    if s > sqrt(eps(T))
+        θ = atan(s, c)
+        return d * normalize(sin((1 - f) * θ) * uold + sin(f * θ) * unew)
+    elseif c > 0
+        # θ ≈ 0: the great circle is degenerate, but the chord approximates it well
+        return d * normalize((1 - f) * uold + f * unew)
+    end
+    # θ ≈ 180°: ill-conditioned, since every plane containing `uold` also contains `unew`
+    # and the direction of travel is therefore arbitrary. Pick one deterministically, by
+    # rotating in the plane spanned by `uold` and the axis it is least aligned with.
+    i = argmin(abs.(uold))
+    uperp = normalize(cross(uold, SVector(ntuple(j -> T(j == i), 3))))
+    θ = atan(s, c)
+    return d * (cos(f * θ) * uold + sin(f * θ) * uperp)
+end
+
 # Compute the view from a PathChange at (relative) time t
 
 function (pause::Pause{T})(view::ViewState{T}, t) where T
@@ -173,7 +215,7 @@ function (move::ConstrainedMove{T})(view::ViewState{T}, t) where T
     elseif constraint === :rotation
         vold = eyeposition - lookat
         vnew = eyeposition_new - lookat_new
-        eyeposition = cospi(f/2) * vold + sinpi(f/2) * vnew + lookatf
+        eyeposition = slerp(vold, vnew, f) + lookatf
     end
     upvector = (1 - f) * upvector + f * upvector_new
     fov = (1 - f) * fov + f * fov_new
