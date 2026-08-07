@@ -26,3 +26,7 @@ tlist = range(0, stop=15, length=31)
 record(fig, "fly_animation.mp4", tlist; framerate=round(Int, length(tlist)/last(tlist))) do t
     set_view!(ax, path(t))
 end
+
+# `record` also accepts a `Path` directly, sampling it at `framerate` frames per second
+# and setting the view on each frame (on the figure's current axis).
+record(fig, "fly_animation_path.mp4", path; framerate=24)
