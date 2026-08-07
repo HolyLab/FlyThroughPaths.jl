@@ -167,6 +167,44 @@ using Test
             @test_throws ArgumentError move(view0, 1.5)
             @test_throws ArgumentError move(view0, -0.5)
         end
+        @testset "vector evaluation" begin
+            # `path(ts)` samples a whole sorted vector of times in one pass; it must agree
+            # with the scalar method exactly, including at the segment boundaries where
+            # `searchsortedfirst` has to make the same choice the scalar walk does.
+            view0 = ViewState(eyeposition = SVector(10.0, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
+                              upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
+            vpath = Path(view0)
+            for i in 1:6
+                θ = 2π * i / 6
+                target = ViewState(eyeposition = SVector(10cos(θ), 10sin(θ), 0.0))
+                vpath = vpath * (isodd(i) ? ConstrainedMove(0.2, target, :rotation, :constant) :
+                                            ConstrainedMove(0.3, target, :none, :sinusoidal))
+                vpath = vpath * Pause(0.1)
+            end
+            tend = FlyThroughPaths.duration(vpath)
+            bounds = cumsum(FlyThroughPaths.duration.(vpath.changes))
+            ts = sort(vcat(collect(range(0, tend; length = 97)), bounds,
+                           prevfloat.(bounds), nextfloat.(bounds),
+                           [-1.0, -0.0, 0.0, tend, nextfloat(tend), tend + 1]))
+            @test vpath(ts) == vpath.(ts)
+            # An empty path and a single-element sample are not special-cased away
+            @test Path(view0)(ts) == Path(view0).(ts)
+            @test vpath([0.35]) == [vpath(0.35)]
+            @test isempty(vpath(Float64[]))
+            @test vpath(ts) isa Vector{ViewState{Float64}}
+            # Unsorted input would break the single forward pass, so it is rejected
+            @test_throws ArgumentError vpath([1.0, 0.5])
+
+            # The long Float32 path is the case the fast path exists for
+            longpath = Path(ViewState(eyeposition = SVector{3,Float32}(10, 0, 0), lookat = SVector{3,Float32}(0, 0, 0),
+                                      upvector = SVector{3,Float32}(0, 0, 1), fov = 45f0))
+            for i in 1:200
+                θ = 2π * i / 200
+                longpath = longpath * ConstrainedMove(0.16f0, ViewState(eyeposition = SVector{3,Float32}(10cos(θ), 10sin(θ), 0)), :rotation, :constant)
+            end
+            trange = LinRange(0f0, FlyThroughPaths.duration(longpath), FlyThroughPaths.nframes(longpath, 24))
+            @test longpath(trange) == longpath.(trange)
+        end
         @testset "nframes" begin
             # Used by the Makie extension to sample a path for `record`
             view0 = ViewState(eyeposition = SVector(10.0, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
