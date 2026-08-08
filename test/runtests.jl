@@ -206,7 +206,7 @@ using Test
             @test longpath(trange) == longpath.(trange)
         end
         @testset "nframes" begin
-            # Used by the Makie extension to sample a path for `record`
+            # Used by the Makie extension to sample a path at a given rate
             view0 = ViewState(eyeposition = SVector(10.0, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
                               upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
             tenseconds = Path(view0) * Pause(10.0)
