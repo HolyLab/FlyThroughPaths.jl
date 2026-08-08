@@ -27,7 +27,7 @@ record(fig, "fly_animation.mp4", tlist; framerate=round(Int, length(tlist)/last(
     set_view!(ax, path(t))
 end
 
-# `record` also accepts a `Path` directly, sampling it at `framerate` frames per second
-# and setting the view of the object it is given on each frame.  That object is the axis
-# (or scene) being flown, not the figure, which would not say which axis to fly.
-record(ax, "fly_animation_path.mp4", path; framerate=24)
+# The path itself can be plotted, in the space it flies through
+f2, a2, p2 = surface(-8..8, -8..8, Makie.peaks())
+FlyThroughPaths.plotcamerapath!(a2, path, 7)
+display(f2)
