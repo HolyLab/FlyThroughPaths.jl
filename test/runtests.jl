@@ -1,5 +1,6 @@
 using FlyThroughPaths
 using LinearAlgebra
+using StaticArrays
 using Test
 
 @testset "FlyThroughPaths.jl" begin
@@ -19,6 +20,23 @@ using Test
             # Round-trippability with display
             @test eval(Meta.parse(str)) == view
         end
+        @testset "element type" begin
+            # The element type is promoted from the supplied values
+            view64 = ViewState(eyeposition = SVector(1.0, 2.0, 3.0), lookat = SVector(0.0, 0.0, 0.0),
+                               upvector = SVector(0.0, 0.0, 1.0), fov = 40.0)
+            @test view64 isa ViewState{Float64}
+            @test view64.eyeposition == [1, 2, 3]
+            # Float32 input still yields a Float32 ViewState
+            @test ViewState(eyeposition = SVector{3,Float32}(1, 2, 3), fov = 40f0) isa ViewState{Float32}
+            @test ViewState(eyeposition = SVector{3,Float16}(1, 2, 3)) isa ViewState{Float16}
+            # A single Float64 field is enough to promote the whole state
+            @test ViewState(eyeposition = SVector{3,Float32}(1, 2, 3), fov = 40.0) isa ViewState{Float64}
+            # Integers carry no precision preference, so they keep the Float32 default
+            @test ViewState(eyeposition = [-10, 0, 0], fov = 45) isa ViewState{Float32}
+            @test ViewState() isa ViewState{Float32}
+            # Explicitly-typed construction is unaffected
+            @test ViewState{Float32}(eyeposition = SVector(1.0, 2.0, 3.0), fov = 40.0) isa ViewState{Float32}
+        end
     end
     @testset "Path" begin
         view = ViewState(eyeposition = [-10, 0, 0], lookat=[0, 0, 0], upvector=[0, 0, 1], fov=45)
@@ -32,6 +50,19 @@ using Test
             @test newpath(0.5).eyeposition == view.eyeposition
 
             @test path*Pause(1.0) isa Path{Float64}
+
+            @testset "action" begin
+                ts = Float64[]
+                pause = Pause(2.0, t -> push!(ts, t))
+                @test pause isa Pause{Float64}
+                newpath = path*pause
+                # The action fires with the fraction of the pause that has elapsed
+                @test newpath(1.0).eyeposition == view.eyeposition
+                @test ts == [0.5]
+                newpath(0.0)
+                newpath(2.0)
+                @test ts == [0.5, 0.0, 1.0]
+            end
         end
         @testset "ConstrainedMove" begin
             move = ConstrainedMove(5, ViewState(eyeposition=[0, 10, 0]), :none, :constant)
@@ -56,6 +87,52 @@ using Test
             v = newpath(1.25)
             @test norm(v.eyeposition - view.eyeposition) < 0.9 * norm(v.eyeposition - [-5, 5, 0])
         end
+        @testset ":rotation constraint" begin
+            # A `cospi(f/2)*vold + sinpi(f/2)*vnew` blend has squared length
+            # d²(1 + sinpi(f)*cos(θ)), which is d² only for θ = 90°. The distance to the
+            # lookat point must instead stay between the two endpoint distances.
+            for θ in (0, 45, 90, 179, 180), (dold, dnew) in ((10.0, 10.0), (10.0, 4.0), (4.0, 10.0))
+                view0 = ViewState(eyeposition = SVector(dold, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
+                                  upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
+                eyenew = SVector(dnew*cosd(θ), dnew*sind(θ), 0.0)
+                rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = eyenew), :rotation, :constant)
+                # The endpoints are exact
+                @test rpath(0.0).eyeposition == view0.eyeposition
+                @test rpath(1.0).eyeposition == eyenew
+                radii = [norm(rpath(f).eyeposition - rpath(f).lookat) for f in range(0, 1; length = 101)]
+                @test !any(isnan, radii)
+                @test all(r -> min(dold, dnew) - 1e-8 <= r <= max(dold, dnew) + 1e-8, radii)
+                # ...and it varies monotonically, so equal endpoint radii stay constant
+                @test issorted(round.(radii; digits = 9); rev = dnew < dold)
+            end
+            # The interpolation is a rotation, not a chord: halfway through a 90° move at
+            # constant radius the camera sits at 45°.
+            view0 = ViewState(eyeposition = SVector(10.0, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
+                              upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
+            rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = SVector(0.0, 10.0, 0.0)), :rotation, :constant)
+            @test rpath(0.5).eyeposition ≈ [10/sqrt(2), 10/sqrt(2), 0]
+            @test rpath(0.25).eyeposition ≈ 10 .* [cosd(22.5), sind(22.5), 0]
+            # A move that only changes the distance still interpolates the distance smoothly
+            rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = SVector(5.0, 0.0, 0.0)), :rotation, :constant)
+            @test rpath(0.5).eyeposition ≈ [sqrt(50), 0, 0]   # geometric mean of 10 and 5
+
+            # A move that is nearly, but not exactly, a half turn still follows the great
+            # circle its endpoints determine. Here that circle runs through +y, and the
+            # cross product still fixes its plane to a relative accuracy of 1e-7 even
+            # though `dot(a, b)` has already rounded to exactly -1 in Float64.
+            eyenew = 10 .* normalize(SVector(-1.0, 1e-9, 0.0))
+            rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = eyenew), :rotation, :constant)
+            @test rpath(0.5).eyeposition ≈ [0, 10, 0] atol = 1e-6
+            @test rpath(0.25).eyeposition ≈ 10 .* [cosd(45), sind(45), 0] atol = 1e-6
+            # An exact half turn is ambiguous, so any great circle will do, but the radius
+            # must still be preserved and the move must stay perpendicular to its own axis
+            rpath = Path(view0) * ConstrainedMove(1.0, ViewState(eyeposition = SVector(-10.0, 0.0, 0.0)), :rotation, :constant)
+            @test norm(rpath(0.5).eyeposition) ≈ 10
+            @test dot(rpath(0.5).eyeposition, view0.eyeposition) ≈ 0 atol = 1e-12
+            # ...and the arc must be traced continuously, not jumped through
+            arc = [rpath(f).eyeposition for f in range(0, 1; length = 201)]
+            @test maximum(norm.(diff(arc))) < 0.2
+        end
         @testset "BezierMove" begin
             move = BezierMove(5, ViewState(eyeposition=[0, 10, 0]), [ViewState(eyeposition=[-20, 20, 0])])
             newpath = path*move
@@ -66,6 +143,96 @@ using Test
             @test norm(mid.eyeposition) > 12  # overshoots
             @test mid.lookat == view.lookat
             @test mid.upvector == view.upvector
+        end
+        @testset "segment boundaries" begin
+            # `path(t)` accumulates the segment start times, so the local time handed to a
+            # `PathChange` can exceed that change's duration by an ulp even though `t`
+            # itself selected the segment.
+            view0 = ViewState{Float64}(eyeposition=[10, 0, 0], lookat=[0, 0, 0], upvector=[0, 0, 1], fov=45)
+            bpath = Path(view0)
+            for i in 1:5
+                bpath = bpath * ConstrainedMove(0.2, ViewState{Float64}(eyeposition=[10, i, 0]), :none, :constant)
+            end
+            for k in 0:5
+                t = 0.2k
+                @test bpath(t) isa ViewState{Float64}
+                @test bpath(prevfloat(t)) isa ViewState{Float64}
+                @test bpath(nextfloat(t)) isa ViewState{Float64}
+            end
+            # ...and the view is continuous across a boundary
+            @test bpath(prevfloat(0.6)).eyeposition ≈ bpath(nextfloat(0.6)).eyeposition
+
+            # `checkt` should still reject times that are genuinely out of range
+            move = ConstrainedMove(1.0, ViewState{Float64}(eyeposition=[0, 10, 0]), :none, :constant)
+            @test_throws ArgumentError move(view0, 1.5)
+            @test_throws ArgumentError move(view0, -0.5)
+        end
+        @testset "vector evaluation" begin
+            # `path(ts)` samples a whole sorted vector of times in one pass; it must agree
+            # with the scalar method exactly, including at the segment boundaries where
+            # `searchsortedfirst` has to make the same choice the scalar walk does.
+            view0 = ViewState(eyeposition = SVector(10.0, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
+                              upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
+            vpath = Path(view0)
+            for i in 1:6
+                θ = 2π * i / 6
+                target = ViewState(eyeposition = SVector(10cos(θ), 10sin(θ), 0.0))
+                vpath = vpath * (isodd(i) ? ConstrainedMove(0.2, target, :rotation, :constant) :
+                                            ConstrainedMove(0.3, target, :none, :sinusoidal))
+                vpath = vpath * Pause(0.1)
+            end
+            tend = FlyThroughPaths.duration(vpath)
+            bounds = cumsum(FlyThroughPaths.duration.(vpath.changes))
+            ts = sort(vcat(collect(range(0, tend; length = 97)), bounds,
+                           prevfloat.(bounds), nextfloat.(bounds),
+                           [-1.0, -0.0, 0.0, tend, nextfloat(tend), tend + 1]))
+            @test vpath(ts) == vpath.(ts)
+            # An empty path and a single-element sample are not special-cased away
+            @test Path(view0)(ts) == Path(view0).(ts)
+            @test vpath([0.35]) == [vpath(0.35)]
+            @test isempty(vpath(Float64[]))
+            @test vpath(ts) isa Vector{ViewState{Float64}}
+            # Unsorted input would break the single forward pass, so it is rejected
+            @test_throws ArgumentError vpath([1.0, 0.5])
+
+            # The long Float32 path is the case the fast path exists for
+            longpath = Path(ViewState(eyeposition = SVector{3,Float32}(10, 0, 0), lookat = SVector{3,Float32}(0, 0, 0),
+                                      upvector = SVector{3,Float32}(0, 0, 1), fov = 45f0))
+            for i in 1:200
+                θ = 2π * i / 200
+                longpath = longpath * ConstrainedMove(0.16f0, ViewState(eyeposition = SVector{3,Float32}(10cos(θ), 10sin(θ), 0)), :rotation, :constant)
+            end
+            trange = LinRange(0f0, FlyThroughPaths.duration(longpath), FlyThroughPaths.nframes(longpath, 24))
+            @test longpath(trange) == longpath.(trange)
+        end
+        @testset "nframes" begin
+            # Used by the Makie extension to sample a path at a given rate
+            view0 = ViewState(eyeposition = SVector(10.0, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
+                              upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
+            tenseconds = Path(view0) * Pause(10.0)
+            @test FlyThroughPaths.nframes(tenseconds, 24) == 240
+            @test FlyThroughPaths.nframes(tenseconds, 30) == 300
+            @test FlyThroughPaths.nframes(Path(view0) * Pause(122.0), 30) == 3660
+            @test FlyThroughPaths.nframes(Path(view0) * Pause(0.5), 24) == 12
+            # A path shorter than a frame interval still needs a non-degenerate range
+            @test FlyThroughPaths.nframes(Path(view0) * Pause(0.01), 24) == 2
+            @test FlyThroughPaths.nframes(Path(view0), 24) == 2
+        end
+        @testset "long path" begin
+            # A 122 s flight assembled from 750 short moves: in Float32 the segment start
+            # times accumulated by `path(t)` drift away from the sampled frame times.
+            view0 = ViewState(eyeposition = SVector(10.0, 0.0, 0.0), lookat = SVector(0.0, 0.0, 0.0),
+                              upvector = SVector(0.0, 0.0, 1.0), fov = 45.0)
+            n, tend = 750, 122.0
+            longpath = Path(view0)
+            for i in 1:n
+                θ = 2π * i / n
+                longpath = longpath * ConstrainedMove(tend/n, ViewState(eyeposition = SVector(10cos(θ), 10sin(θ), 0.0)), :none, :constant)
+            end
+            @test longpath isa Path{Float64}
+            @test FlyThroughPaths.duration(longpath) ≈ tend
+            @test all(t -> longpath(t) isa ViewState{Float64}, range(0, tend; length = 1001))
+            @test all(k -> longpath(k*(tend/n)) isa ViewState{Float64}, 0:n)
         end
     end
 end

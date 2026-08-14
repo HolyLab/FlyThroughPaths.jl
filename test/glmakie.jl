@@ -26,3 +26,8 @@ tlist = range(0, stop=15, length=31)
 record(fig, "fly_animation.mp4", tlist; framerate=round(Int, length(tlist)/last(tlist))) do t
     set_view!(ax, path(t))
 end
+
+# The path itself can be plotted, in the space it flies through
+f2, a2, p2 = surface(-8..8, -8..8, Makie.peaks())
+FlyThroughPaths.plotcamerapath!(a2, path, 7)
+display(f2)

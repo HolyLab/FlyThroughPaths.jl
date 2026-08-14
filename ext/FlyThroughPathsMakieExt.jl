@@ -25,27 +25,29 @@ function FlyThroughPaths.set_view!(scene::Scene, view::ViewState)
 end
 FlyThroughPaths.set_view!(axis::Makie.AbstractAxis, view::ViewState) = set_view!(axis.scene, view)
 
-function Makie.record(fig::Makie.FigureLike, file::String, path::Path; framerate = 24, kwargs...)
-    tend = FlyThroughPaths.duration(path)
-    trange = LinRange(0, tend, round(Int, tend / framerate))
-    iterator = path.(trange)
-    return Makie.record(fig, file, iterator; framerate, kwargs...)
-end
-
 # Define the recipe
 import FlyThroughPaths: plotcamerapath, plotcamerapath!
-@recipe(PlotCameraPath, path, time) do scene
-    Attributes(
-        colormap = Makie.inherit(scene, :colormap, :plasma),
-        color = Makie.inherit(scene, :color, :black),
-        linewidth = Makie.inherit(scene, :linewidth, 1.0),
-        linestyle = Makie.inherit(scene, :linestyle, :solid),
-        camera_marker = Makie.inherit(scene, :marker, :none),
-        camera_color = Makie.inherit(scene, :color, :black),
-        camera_markersize = Vec3f(2, 2, 3),
-        density = 30, # points per second
-        cycle = [:color,],
-    )
+"""
+    plotcamerapath(path::Path, [time])
+
+Plot the eye positions along `path` as a line coloured by time, with an arrow showing
+where the camera is looking at `time` (0 by default).
+"""
+@recipe PlotCameraPath (path, time) begin
+    "Colormap for the path, which is coloured by time."
+    colormap = @inherit colormap :plasma
+    color = @inherit color :black
+    linewidth = @inherit linewidth 1.0
+    linestyle = @inherit linestyle :solid
+    camera_color = @inherit color :black
+    """
+    Scales the arrow marking the camera. `automatic` sizes it from the bounding box of
+    the path, which is usually what you want, since a path can span any distance.
+    """
+    camera_markerscale = Makie.automatic
+    "Sampling rate of the path, in points per second of path time."
+    density = 30
+    cycle = [:color]
 end
 
 Makie.convert_arguments(::Type{<: PlotCameraPath}, path::Path, time::Number) = (path, Float64(time))
@@ -57,8 +59,8 @@ function Makie.plot!(plot::PlotCameraPath)
     trange_obs = Observable{LinRange{Float64}}()
     onany(plot, plot.path, plot.density; update = true) do path, density
         tend = FlyThroughPaths.duration(path)
-        trange_obs.val = LinRange(0.0, Float64(tend), round(Int, tend*density))
-        eyepositions_obs.val = Makie.Point3d.(getproperty.(path.(trange_obs.val), :eyeposition))
+        trange_obs.val = LinRange(0.0, Float64(tend), FlyThroughPaths.nframes(path, density))
+        eyepositions_obs.val = Makie.Point3d.(getproperty.(path(trange_obs.val), :eyeposition))
         notify(eyepositions_obs)
         notify(trange_obs)
     end
@@ -90,15 +92,25 @@ function Makie.plot!(plot::PlotCameraPath)
         linewidth = plot.linewidth, 
         linestyle = plot.linestyle,
     )
-    arrows!(
-        plot, 
-        @lift([$eyeposition_obs]), 
+    # The camera arrow has to be sized against the path, not against itself: `automatic`
+    # would scale it by its own bounding box, which is a single unit-length arrow.
+    arrowscale_obs = lift(plot, plot.camera_markerscale, eyepositions_obs) do scale, eyepositions
+        scale isa Makie.Automatic || return Float64(scale)
+        length(eyepositions) < 2 && return 1.0
+        return 0.15 * maximum(Makie.widths(Rect3d(eyepositions)))
+    end
+
+    # `align = :tail` puts the arrow's base at the eye, so it points where the camera looks
+    arrows3d!(
+        plot,
+        @lift([$eyeposition_obs]),
         @lift([$viewdir_obs]);
-        color = plot.camera_color, 
-        arrowsize = plot.camera_markersize, 
-        normalize = true, 
-        shading = Makie.MultiLightShading,
-        align = :headstart,
+        color = plot.camera_color,
+        lengthscale = arrowscale_obs,
+        markerscale = arrowscale_obs,
+        normalize = true,
+        shading = true,
+        align = :tail,
     )
 
 
